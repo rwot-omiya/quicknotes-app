@@ -7,19 +7,55 @@ const searchInput = document.querySelector("#search-input");
 const notesList = document.querySelector("#notes-list");
 const noteCount = document.querySelector("#note-count");
 const errorMessage = document.querySelector("#error-message");
+const STORAGE_KEY = "quicknotes";
 
-function render() {
-  notesList.replaceChildren();
+function saveNotes() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+}
 
-  if (notes.length === 0) {
-    noteCount.textContent = "You have no notes yet.";
-  } else if (notes.length === 1) {
-    noteCount.textContent = "You have 1 note.";
-  } else {
-    noteCount.textContent = `You have ${notes.length} notes.`;
+function loadNotes() {
+  const savedNotes = localStorage.getItem(STORAGE_KEY);
+
+  if (!savedNotes) {
+    notes = [];
+    return;
   }
 
-  for (const note of notes) {
+  try {
+    const parsedNotes = JSON.parse(savedNotes);
+    notes = Array.isArray(parsedNotes) ? parsedNotes : [];
+  } catch {
+    notes = [];
+  }
+}
+
+function render() {
+  const searchTerm = searchInput.value.trim().toLowerCase();
+  const visibleNotes = notes.filter((note) =>
+    note.text.toLowerCase().includes(searchTerm)
+  );
+
+  notesList.replaceChildren();
+
+  if (visibleNotes.length === 0) {
+    noteCount.textContent = searchTerm
+      ? "You have no matching notes."
+      : "You have no notes yet.";
+  } else if (visibleNotes.length === 1) {
+    noteCount.textContent = "You have 1 note.";
+  } else {
+    noteCount.textContent = `You have ${visibleNotes.length} notes.`;
+  }
+
+  if (searchTerm && visibleNotes.length === 0 && notes.length > 0) {
+    const emptyMessage = document.createElement("li");
+    emptyMessage.className = "empty-message";
+    emptyMessage.textContent = "No notes match your search.";
+    notesList.appendChild(emptyMessage);
+    return;
+  }
+
+  for (const note of visibleNotes) {
     const item = document.createElement("li");
     item.className = `note-card category-${note.category}`;
 
@@ -51,6 +87,7 @@ function render() {
 
 function deleteNote(id) {
   notes = notes.filter((note) => note.id !== id);
+  saveNotes();
   render();
 }
 
@@ -77,9 +114,13 @@ form.addEventListener("submit", (event) => {
   };
 
   notes.push(note);
+  saveNotes();
   errorMessage.textContent = "";
   render();
   noteInput.value = "";
 });
 
+searchInput.addEventListener("input", render);
+
+loadNotes();
 render();
